@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from os import getenv
+from os import getenv, getpid
 from sys import platform, version_info
 
 from py2neo.compat import ConfigParser, Mapping, urlsplit, string_types
@@ -141,7 +141,7 @@ class ConnectionProfile(Mapping):
     __keys = ("secure", "verify", "scheme", "user", "password", "address",
               "auth", "host", "port", "port_number", "protocol", "uri")
 
-    __hash_keys = ("secure", "verify", "scheme", "user", "password", "address")
+    __hash_keys = ("secure", "verify", "scheme", "user", "password", "address", "_proc_id")
 
     def __init__(self, profile=None, **settings):
         # TODO: recognise IPv6 addresses explicitly
@@ -164,6 +164,7 @@ class ConnectionProfile(Mapping):
         # Apply extra settings as overrides
         self._apply_auth(**settings)
         self._apply_components(**settings)
+        self._proc_id = getpid()
 
         # Clean up and derive secondary attributes
         self._apply_correct_scheme_for_security()
