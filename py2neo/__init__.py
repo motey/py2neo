@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2020, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,22 @@
 # limitations under the License.
 
 
-__author__ = "Nigel Small <nigel@nigelsmall.com>"
-__copyright__ = "2011-2014, Nigel Small"
-__email__ = "nigel@nigelsmall.com"
-__license__ = "Apache License, Version 2.0"
-__package__ = "py2neo"
-__version__ = "2.0.alpha"  # TODO: update this before release
+from datetime import date as _date
+
+from py2neo.meta import get_metadata as _get_metadata
 
 
-from py2neo.batch import *
-from py2neo.core import *
-from py2neo.cypher import *
-from py2neo.error import *
-from py2neo.legacy import *
-from py2neo.packages.httpstream.watch import watch
+metadata = _get_metadata()
+
+__author__ = metadata["author"]
+__copyright__ = "{}-{}, {}".format(2011, _date.today().year, metadata["author"])
+__email__ = metadata["author_email"]
+__license__ = metadata["license"]
+__package__ = metadata["name"]
+__version__ = metadata["version"]
 
 
-node = Node.cast
-rel = Relationship.cast
+from py2neo.data import *
+from py2neo.database import *
+from py2neo.database.work import *
+from py2neo.matching import *

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2020, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,82 +15,112 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from os import getenv, path
+from warnings import warn
 
-import sys
+from setuptools import setup, find_packages
 
-try:
-    from setuptools import setup
-    from setuptools.extension import Extension
-except ImportError:
-    from distutils.core import setup
-    from distutils.extension import Extension
-
-from py2neo import __author__, __email__, __license__, __package__, __version__
+from py2neo.meta import VERSION_FILE, get_metadata, parse_version_string
 
 
-python_2 = sys.version_info < (3,)
+README_FILE = path.join(path.dirname(__file__), "README.rst")
 
-package_metadata = {
-    "name": __package__,
-    "version": __version__,
-    "description": "Python client library and toolkit for Neo4j",
-    # TODO: rewrite long description for 2.0
-    "long_description": "Py2neo is a simple and pragmatic Python library that "
-                        "provides access to the popular graph database Neo4j via "
-                        "its RESTful web service interface. With no external "
-                        "dependencies, installation is straightforward and "
-                        "getting started with coding is easy. The library is "
-                        "actively maintained on GitHub, regularly updated in the "
-                        "Python Package Index and is built uniquely for Neo4j in "
-                        "close association with its team and community.",
-    "author": __author__,
-    "author_email": __email__,
-    "url": "http://nigelsmall.com/py2neo",
-    "scripts": [
-        "scripts/neotool",
-    ],
-    "packages": [
-        "py2neo",
-        "py2neo.batch",
-        "py2neo.cypher",
-        "py2neo.ext",
-        "py2neo.ext.admin",
-        "py2neo.ext.calendar",
-        "py2neo.ext.gremlin",
-        "py2neo.ext.ogm",
-        "py2neo.legacy",
-        "py2neo.packages",
-        "py2neo.packages.httpstream",
-        "py2neo.packages.httpstream.packages",
-        "py2neo.packages.httpstream.packages.urimagic",
-        "py2neo.packages.jsonstream",
-        "py2neo.tool",
-    ],
-    "license": __license__,
-    "classifiers": [
-        "Development Status :: 5 - Production/Stable",
-        "Intended Audience :: Developers",
-        "License :: OSI Approved :: Apache Software License",
-        "Operating System :: OS Independent",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3.3",
-        "Programming Language :: Python :: 3.4",
-        "Topic :: Database",
-        "Topic :: Software Development",
-    ],
-    "zip_safe": False,
-}
 
-extensions = []
-sdist = "sdist" in sys.argv
-if sdist or not python_2:
-    extensions.append(Extension("py2neo.packages.jsonstream.cjsonstream",
-                                ["py2neo/packages/jsonstream/cjsonstream.c"]))
-if sdist or python_2:
-    extensions.append(Extension("py2neo.packages.jsonstream.cjsonstream_2x",
-                                ["py2neo/packages/jsonstream/cjsonstream_2x.c"]))
+def get_readme():
+    with open(README_FILE) as f:
+        return f.read()
 
-try:
-    setup(ext_modules=extensions, **package_metadata)
-except:
-    setup(**package_metadata)
+
+class Release(object):
+
+    def __init__(self):
+        self.__original = None
+
+    def __enter__(self):
+        self.__original = parse_version_string(self._read_version())
+        if self.__original["dev"]:
+            patched = parse_version_string(self._read_patched())
+            self._check_compatible(self.__original, patched)
+            self._patch_version(patched["string"])
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._patch_version(self.__original["string"])
+
+    @classmethod
+    def _read_version(cls):
+        with open(VERSION_FILE, "r") as f:
+            return f.read()
+
+    @classmethod
+    def _read_patched(cls):
+        patched = getenv("RELEASE")
+        if patched:
+            return patched
+        else:
+            warn("RELEASE environment variable not set - assuming development release")
+            return cls._read_version()
+
+    @classmethod
+    def _check_compatible(cls, original, patched):
+        if original == patched:
+            return
+        compatible = True
+        if patched["epoch"] != original["epoch"]:
+            compatible = False
+        if patched["release"][:2] != original["release"][:2]:
+            compatible = False
+        if patched["dev"] is not None:
+            compatible = False
+        if not compatible:
+            raise SystemExit("Patched version string %r is not compatible with original version "
+                             "string %r" % (patched["string"], original["string"]))
+
+    @classmethod
+    def _patch_version(cls, value):
+        with open(VERSION_FILE, "w") as f:
+            f.write(value)
+
+
+with Release():
+    setup(**dict(get_metadata(), **{
+        "long_description": get_readme(),
+        "long_description_content_type": "text/x-rst",
+        "entry_points": {
+            "console_scripts": [
+                "py2neo = py2neo.__main__:main",
+            ],
+            "pygments.lexers": [
+                "py2neo.cypher = py2neo.cypher.lexer:CypherLexer",
+            ],
+        },
+        "packages": find_packages(exclude=("docs", "test", "test.*")),
+        "package_data": {
+            "py2neo": ["VERSION"],
+            "py2neo.movies": [
+                "data/*",
+                "static/*",
+                "views/*.tpl",
+                "movies.ini",
+                "README.md",
+            ],
+        },
+        "py_modules": [],
+        "install_requires": [
+            "certifi",
+            "cryptography",
+            "docker",
+            "english",
+            "monotonic",
+            "neotime~=1.7.4",
+            "packaging",
+            "pansi>=2020.7.3",
+            "prompt_toolkit~=2.0.7",
+            "pygments>=2.0.0",
+            "pytz",
+            "six>=1.15.0",
+            "urllib3",
+        ],
+        "extras_require": {
+        },
+    }))

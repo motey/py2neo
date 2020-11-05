@@ -25,7 +25,10 @@ pip-log.txt
 
 # Unit test / coverage reports
 .coverage
+coverage.xml
 nosetests.xml
+.pytest_cache
+htmlcov
 
 # Translations
 *.mo
@@ -43,7 +46,7 @@ nosetests.xml
 .idea
 
 # Sphinx
-book/_build
+docs/_build
 
 # Virtual environment
 venv
@@ -52,3 +55,7 @@ venv
 .bau
 .pip
 .ipython
+.mozilla
+.nv
+.ipynb_checkpoints
+.vscode

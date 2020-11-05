@@ -1,5 +1,0 @@
-[run]
-branch = True
-omit =
-    py2neo/packages/*
-    test/*

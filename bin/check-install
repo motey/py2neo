@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+BIN="$(dirname "$0")"
+ROOT="${BIN}/.."
+DIST="${ROOT}/dist"
+PACKAGE="py2neo"
+ENV=venv
+
+rm -r "${DIST}" &> /dev/null
+
+cd "${ROOT}" || exit
+RELEASE=$(sed s/.dev0/.999/ "${ROOT}/${PACKAGE}/VERSION") python setup.py sdist bdist_wheel || exit
+
+cd "${DIST}" || exit
+pip install --upgrade virtualenv
+virtualenv ${ENV}
+source "${ENV}/bin/activate"
+pip install ${PACKAGE}-*.tar.gz
+if [ "$?" != "0" ]
+then
+    exit 1
+fi
+
+python -c "from py2neo import __package__, __version__; print(__package__ + ' ' + __version__)"
+
+deactivate
+rm -r ${ENV}

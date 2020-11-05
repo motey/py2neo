@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2020, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,63 +16,75 @@
 # limitations under the License.
 
 
-from __future__ import unicode_literals
-
-import json
-import logging
-
-from py2neo.cypher.create import CreateStatement
-from py2neo.cypher.error.core import *
-from py2neo.cypher.lang import *
-from py2neo.cypher.core import *
-from py2neo.util import is_collection
+__all__ = [
+    "cypher_escape",
+    "cypher_repr",
+    "cypher_str",
+]
 
 
-log = logging.getLogger("cypher")
+from py2neo.cypher.encoding import CypherEncoder
+from py2neo.compat import string_types, unicode_types
 
 
-# TODO keep in __init__ as wrapper
-# TODO: add support for Node, NodePointer, Path, Rel, Relationship and Rev
-def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
-    """ Dumps an object as a Cypher expression string.
+def cypher_escape(identifier, **kwargs):
+    """ Return a Cypher identifier, with escaping if required.
 
-    :param obj:
-    :param separators:
-    :return:
+    Simple Cypher identifiers, which just contain alphanumerics
+    and underscores, can be represented as-is in expressions.
+    Any which contain more esoteric characters, such as spaces
+    or punctuation, must be escaped in backticks. Backticks
+    themselves are escaped by doubling.
+
+    ::
+
+        >>> cypher_escape("simple_identifier")
+        'simple_identifier'
+        >>> cypher_escape("identifier with spaces")
+        '`identifier with spaces`'
+        >>> cypher_escape("identifier with `backticks`")
+        '`identifier with ``backticks```'
+
+    Identifiers are used in Cypher to denote named values, labels,
+    relationship types and property keys. This function will typically
+    be used to construct dynamic Cypher queries in places where
+    parameters cannot be used.
+
+        >>> "MATCH (a:{label}) RETURN id(a)".format(label=cypher_escape("Employee of the Month"))
+        'MATCH (a:`Employee of the Month`) RETURN id(a)'
+
+    :param identifier: any non-empty string
     """
+    if not isinstance(identifier, string_types):
+        raise TypeError(type(identifier).__name__)
+    encoder = CypherEncoder(**kwargs)
+    return encoder.encode_key(identifier)
 
-    def dump_mapping(obj):
-        buffer = ["{"]
-        link = ""
-        for key, value in obj.items():
-            buffer.append(link)
-            if " " in key:
-                buffer.append("`")
-                buffer.append(key.replace("`", "``"))
-                buffer.append("`")
-            else:
-                buffer.append(key)
-            buffer.append(separators[1])
-            buffer.append(dumps(value, separators=separators,
-                                ensure_ascii=ensure_ascii))
-            link = separators[0]
-        buffer.append("}")
-        return "".join(buffer)
 
-    def dump_collection(obj):
-        buffer = ["["]
-        link = ""
-        for value in obj:
-            buffer.append(link)
-            buffer.append(dumps(value, separators=separators,
-                                ensure_ascii=ensure_ascii))
-            link = separators[0]
-        buffer.append("]")
-        return "".join(buffer)
+def cypher_repr(value, **kwargs):
+    """ Return the Cypher representation of a value.
 
-    if isinstance(obj, dict):
-        return dump_mapping(obj)
-    elif is_collection(obj):
-        return dump_collection(obj)
+    This function attempts to convert the supplied value into a Cypher
+    literal form, as used in expressions.
+
+    """
+    encoder = CypherEncoder(**kwargs)
+    return encoder.encode_value(value)
+
+
+def cypher_str(value, **kwargs):
+    """ Convert a Cypher value to a Python Unicode string.
+
+    This function converts the supplied value into a string form, as
+    used for human-readable output. This is generally identical to
+    :meth:`.cypher_repr` except for with string values, which are
+    returned as-is, instead of being enclosed in quotes with certain
+    characters escaped.
+
+    """
+    if isinstance(value, unicode_types):
+        return value
+    elif isinstance(value, string_types):
+        return value.decode(kwargs.get("encoding", "utf-8"))
     else:
-        return json.dumps(obj, ensure_ascii=ensure_ascii)
+        return cypher_repr(value, **kwargs)

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+BIN="$(dirname "$0")"
+ROOT="${BIN}/.."
+TEST="${ROOT}/test"
+COVERAGERC="${TEST}/.coveragerc"
+
+ARGS=$*
+
+
+function run_unit_tests
+{
+    echo "Running unit tests"
+    coverage run --append --rcfile="${COVERAGERC}" \
+             --module pytest -v ${ARGS} "${TEST}/unit"
+    STATUS="$?"
+    if [[ ${STATUS} -eq 5 ]]
+    then
+        return
+    fi
+    if [[ ${STATUS} -ne 0 ]]
+    then
+        exit ${STATUS}
+    fi
+}
+
+
+function run_integration_tests
+{
+    echo "Running integration tests"
+    coverage run --append --rcfile="${COVERAGERC}" \
+             --module pytest -v ${ARGS} "${TEST}/integration"
+    STATUS="$?"
+    if [[ ${STATUS} -ne 0 ]]
+    then
+        exit ${STATUS}
+    fi
+    if [[ "${PY2NEO_QUICK_TEST}" != "" ]]
+    then
+        return
+    fi
+}
+
+
+pip install --upgrade \
+  -r "${ROOT}/requirements.txt" \
+  -r "${TEST}/requirements.txt"
+coverage erase --rcfile="${COVERAGERC}"
+
+run_unit_tests
+run_integration_tests
+
+coverage report --rcfile="${COVERAGERC}"
+coverage xml --rcfile="${COVERAGERC}"
